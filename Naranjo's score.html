@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naranjo Assessment & Allergy Card</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Fonts: Sarabun -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- PDF & Canvas Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #f3f4f6;
+        }
+        
+        /* Container for hidden card generation */
+        #hidden-card-container {
+            position: fixed;
+            left: -9999px;
+            top: 0;
+        }
+
+        /* A5 Card Design 
+           Target Aspect Ratio: A5 Landscape is roughly 1.414 (210mm / 148mm)
+           We use a large pixel width to ensure high quality when scaled down.
+        */
+        .allergy-card {
+            width: 1000px; /* High resolution base width */
+            min-height: 680px; /* Changed from fixed height to min-height */
+            height: auto;      /* Allow expansion if content grows */
+            background-color: #eff6ff; /* Light Blue */
+            border: 6px solid #2563eb; /* Blue-600 Border */
+            border-radius: 24px;
+            padding: 30px;
+            box-sizing: border-box;
+            font-family: 'Sarabun', sans-serif;
+            display: flex;
+            flex-direction: column;
+            color: #333;
+            position: relative;
+            /* Removed overflow: hidden to allow content to dictate height */
+        }
+
+        .card-header {
+            text-align: center;
+            color: #1e40af;
+            font-weight: 800;
+            font-size: 36px;
+            border-bottom: 4px solid #2563eb;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+            line-height: 1.2;
+        }
+
+        .card-section {
+            display: flex;
+            margin-bottom: 12px;
+            align-items: baseline;
+        }
+
+        .card-label {
+            font-size: 24px;
+            font-weight: 700;
+            width: 160px;
+            flex-shrink: 0;
+            color: #4b5563;
+        }
+
+        .card-value {
+            font-size: 26px;
+            font-weight: 600;
+            color: #000;
+            border-bottom: 2px dotted #9ca3af;
+            flex-grow: 1;
+            padding-left: 10px;
+            padding-bottom: 4px;
+            line-height: 1.4;
+        }
+
+        /* Table Style for Drugs */
+        .drug-table {
+            width: 100%;
+            margin-top: 15px;
+            margin-bottom: 15px;
+            border-collapse: separate;
+            border-spacing: 0;
+            border: 2px solid #3b82f6;
+            border-radius: 12px;
+            overflow: hidden;
+            background: white;
+        }
+        
+        .drug-table th {
+            background-color: #dbeafe;
+            color: #1e40af;
+            font-weight: 800;
+            font-size: 20px; /* Slightly smaller header */
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 2px solid #3b82f6;
+        }
+
+        .drug-table td {
+            padding: 8px 12px; /* Reduced padding to fit more rows */
+            font-size: 20px;   /* Slightly smaller text */
+            font-weight: 600;
+            border-bottom: 1px solid #e5e7eb;
+            line-height: 1.3;
+            vertical-align: top;
+        }
+        
+        .drug-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .card-footer {
+            margin-top: auto; /* Pushes footer to bottom */
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-top: 2px solid #bfdbfe;
+            padding-top: 15px;
+        }
+
+        .footer-info {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1e40af;
+            line-height: 1.5;
+        }
+
+        .footer-note {
+            font-size: 18px;
+            color: #dc2626;
+            font-weight: 700;
+            text-align: right;
+        }
+
+        /* Utility */
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-5xl mx-auto bg-white shadow-xl rounded-xl overflow-hidden">
+        <!-- Header -->
+        <div class="bg-blue-600 p-6 text-white flex justify-between items-center flex-wrap gap-4">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight" id="app-title">Naranjo Assessment</h1>
+                <p class="text-blue-100 text-sm" id="app-subtitle">Adverse Drug Reaction Probability Scale & Allergy Card Generator</p>
+            </div>
+            <div class="flex space-x-2 bg-blue-700 p-1 rounded-lg">
+                <button onclick="setLanguage('en')" id="btn-en" class="px-4 py-1 rounded transition-colors text-sm font-medium">EN</button>
+                <button onclick="setLanguage('th')" id="btn-th" class="px-4 py-1 rounded bg-white text-blue-700 shadow text-sm font-medium">TH</button>
+            </div>
+        </div>
+
+        <div class="p-6">
+            <!-- 1. Patient Information -->
+            <div class="mb-8">
+                <h2 class="text-xl font-bold text-gray-800 border-b pb-2 mb-4 flex items-center">
+                    <span class="bg-blue-100 text-blue-600 py-1 px-2 rounded mr-2 text-sm">1</span>
+                    <span id="sec-patient">Patient Information</span>
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1" id="lbl-name">Patient Name</label>
+                        <input type="text" id="inp-name" class="w-full border-gray-300 rounded-md shadow-sm border p-2.5 focus:ring-blue-500 focus:border-blue-500" placeholder="...">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1" id="lbl-hn">HN</label>
+                        <input type="text" id="inp-hn" class="w-full border-gray-300 rounded-md shadow-sm border p-2.5 focus:ring-blue-500 focus:border-blue-500" placeholder="...">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1" id="lbl-unit">Assessing Unit (Hospital/Pharmacy)</label>
+                        <input type="text" id="inp-unit" class="w-full border-gray-300 rounded-md shadow-sm border p-2.5 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1" id="lbl-date">Date</label>
+                        <input type="date" id="inp-date" class="w-full border-gray-300 rounded-md shadow-sm border p-2.5 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <!-- Pharmacist -->
+                    <div class="md:col-span-2 bg-blue-50 p-4 rounded-lg border border-blue-100 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-blue-800 mb-1" id="lbl-pharm">Pharmacist Name</label>
+                            <input type="text" id="inp-pharm" class="w-full border-blue-200 rounded-md shadow-sm border p-2.5 focus:ring-blue-500 focus:border-blue-500" placeholder="...">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-blue-800 mb-1" id="lbl-license">License No. (ภ.)</label>
+                            <input type="text" id="inp-license" class="w-full border-blue-200 rounded-md shadow-sm border p-2.5 focus:ring-blue-500 focus:border-blue-500" placeholder="ภ.xxxxx">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. History Drugs (Optional) -->
+            <div class="mb-8 bg-yellow-50 p-5 rounded-xl border border-yellow-200">
+                <h2 class="text-lg font-bold text-yellow-800 mb-3 flex items-center justify-between">
+                    <div class="flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span id="sec-history">Old History (Known Allergies)</span>
+                    </div>
+                </h2>
+                <p class="text-sm text-gray-600 mb-3" id="desc-history">Add known allergies here. These will be included in the card as "History (H)".</p>
+                
+                <div class="flex flex-col md:flex-row gap-3 mb-3">
+                    <input type="text" id="hist-drug" placeholder="Drug Name" class="flex-1 border-gray-300 rounded-md shadow-sm border p-2 text-sm">
+                    <input type="text" id="hist-sym" placeholder="Symptom" class="flex-1 border-gray-300 rounded-md shadow-sm border p-2 text-sm">
+                    <button onclick="addHistoryItem()" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-md font-bold text-sm shadow transition">
+                        + Add
+                    </button>
+                </div>
+
+                <!-- List of added history items -->
+                <ul id="history-list" class="space-y-2">
+                    <!-- JS will populate -->
+                </ul>
+            </div>
+
+            <!-- 3. Current Assessment (Naranjo) -->
+            <div class="mb-8 border-2 border-blue-100 rounded-xl p-5">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-blue-800 flex items-center">
+                        <span class="bg-blue-600 text-white py-1 px-2 rounded mr-2 text-sm">2</span>
+                        <span id="sec-current">Current Naranjo Assessment</span>
+                    </h2>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" id="chk-assess" class="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500" checked onchange="toggleAssessment()">
+                        <span class="text-sm font-bold text-gray-700" id="lbl-enable-assess">Perform Assessment</span>
+                    </label>
+                </div>
+
+                <div id="assessment-panel" class="transition-all duration-300">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 bg-blue-50 p-4 rounded-lg">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1" id="lbl-drug">Suspected Drug (New)</label>
+                            <input type="text" id="inp-drug" class="w-full border-gray-300 rounded-md shadow-sm border p-2 focus:ring-blue-500 focus:border-blue-500 font-semibold text-blue-900">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1" id="lbl-symptom">Adverse Reaction</label>
+                            <input type="text" id="inp-symptom" class="w-full border-gray-300 rounded-md shadow-sm border p-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                    </div>
+                    
+                    <h3 class="font-bold text-gray-600 mb-2" id="th-ques">Questionnaire</h3>
+                    <div class="overflow-x-auto border rounded-lg">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-bold text-gray-500 uppercase w-3/5">Question</th>
+                                    <th class="px-2 py-2 text-center text-xs font-bold text-gray-500 uppercase w-1/12">Yes</th>
+                                    <th class="px-2 py-2 text-center text-xs font-bold text-gray-500 uppercase w-1/12">No</th>
+                                    <th class="px-2 py-2 text-center text-xs font-bold text-gray-500 uppercase w-1/12">Unk</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200" id="question-body">
+                                <!-- JS Generated -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div id="assessment-disabled-msg" class="hidden p-4 text-center text-gray-400 italic bg-gray-50 rounded-lg">
+                    Assessment disabled. Only History items will be printed.
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex flex-col items-center space-y-6">
+                <button onclick="processAndGenerate()" id="btn-main-action" class="w-full md:w-2/3 px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg text-lg font-bold transition duration-200 flex items-center justify-center transform hover:scale-105">
+                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                    <span id="btn-calc-text">Calculate & Generate Card (A5 PDF)</span>
+                </button>
+
+                <!-- Alert Box (Errors) -->
+                <div id="alert-box" class="hidden w-full md:w-2/3 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow" role="alert">
+                    <p class="font-bold">Cannot Generate Card</p>
+                    <p id="alert-msg">Something went wrong.</p>
+                </div>
+
+                <!-- Result Box (Success) -->
+                <div id="result-container" class="hidden w-full md:w-2/3 bg-green-50 border border-green-200 rounded-xl p-6 text-center">
+                    <div class="flex flex-col items-center">
+                        <h3 class="text-gray-600 font-bold uppercase tracking-widest text-sm mb-1" id="res-label">Assessment Result</h3>
+                        <div class="flex items-baseline space-x-2">
+                            <span class="text-5xl font-extrabold" id="score-val">0</span>
+                        </div>
+                        <span class="text-xl font-bold mt-2" id="interp-val">-</span>
+                    </div>
+                    <div id="download-status" class="text-sm text-gray-500 mt-4 font-semibold animate-pulse"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-gray-50 px-6 py-4 border-t text-center text-xs text-gray-400">
+            Ref: Naranjo CA et al. Clin Pharmacol Ther 1981; 30: 239-245. Deleloped by Opioid Apisit
+        </div>
+    </div>
+
+    <!-- Hidden Template for PDF Generation -->
+    <div id="hidden-card-container">
+        <div id="pdf-card" class="allergy-card">
+            <div class="card-header" id="card-header-text">บัตรแพ้ยา (Drug Allergy Card)</div>
+            
+            <!-- Patient Info -->
+            <div class="card-section">
+                <div class="card-label" id="c-lbl-name">ชื่อ-สกุล:</div>
+                <div class="card-value" id="c-val-name">-</div>
+            </div>
+            <div class="card-section">
+                <div class="card-label" id="c-lbl-hn">HN:</div>
+                <div class="card-value" id="c-val-hn">-</div>
+            </div>
+
+            <!-- Drug Table -->
+            <table class="drug-table">
+                <thead>
+                    <tr>
+                        <th style="width: 35%;" id="th-drug">ยาที่แพ้ (Drug Name)</th>
+                        <th style="width: 35%;" id="th-sym">อาการ (Symptoms)</th>
+                        <th style="width: 30%;" id="th-res">ผลประเมิน (Result)</th>
+                    </tr>
+                </thead>
+                <tbody id="c-table-body">
+                    <!-- Rows will be injected here -->
+                </tbody>
+            </table>
+            
+            <!-- Footer Info -->
+            <div class="card-footer">
+                <div class="footer-info">
+                    <div class="flex mb-2">
+                        <span class="font-bold mr-2" id="c-lbl-unit">หน่วยงาน:</span>
+                        <span id="c-val-unit">-</span>
+                    </div>
+                    <div class="flex mb-2">
+                        <span class="font-bold mr-2" id="c-lbl-pharm">เภสัชกร:</span>
+                        <span id="c-val-pharm">-</span>
+                    </div>
+                    <div class="flex">
+                        <span class="font-bold mr-2" id="c-lbl-date">วันที่:</span>
+                        <span id="c-val-date">-</span>
+                    </div>
+                </div>
+                <div class="footer-note">
+                    โปรดแสดงบัตรนี้ทุกครั้งที่เข้ารับบริการ<br>
+                    Please show this card every visit.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Data ---
+        const questions = [
+            { id: 1, en: "1. Are there previous conclusive reports on this reaction?", th: "1. เคยมีรายงานสรุปแน่ชัดเกี่ยวกับอาการนี้มาก่อนหรือไม่?", y: 1, n: 0, u: 0 },
+            { id: 2, en: "2. Did the adverse event appear after the suspected drug was administered?", th: "2. อาการเกิดขึ้นหลังจากได้รับยาที่สงสัยใช่หรือไม่?", y: 2, n: -1, u: 0 },
+            { id: 3, en: "3. Did the adverse reaction improve when the drug was discontinued or a specific antagonist was administered?", th: "3. อาการดีขึ้นเมื่อหยุดยา หรือได้รับยาต้านจำเพาะหรือไม่?", y: 1, n: 0, u: 0 },
+            { id: 4, en: "4. Did the adverse reaction reappear when the drug was readministered?", th: "4. อาการกลับมาเป็นซ้ำเมื่อได้รับยาเดิมอีกครั้งหรือไม่?", y: 2, n: -1, u: 0 },
+            { id: 5, en: "5. Are there alternative causes (other than the drug) that could on their own have caused the reaction?", th: "5. มีสาเหตุอื่น (นอกจากยา) ที่อธิบายอาการนี้ได้หรือไม่?", y: -1, n: 2, u: 0 },
+            { id: 6, en: "6. Did the reaction reappear when a placebo was given?", th: "6. อาการกำเริบเมื่อได้รับยาหลอก (Placebo) หรือไม่?", y: -1, n: 1, u: 0 },
+            { id: 7, en: "7. Was the drug detected in the blood (or other fluids) in concentrations known to be toxic?", th: "7. ตรวจพบระดับยาในเลือด (หรือสารคัดหลั่ง) ในระดับที่เป็นพิษหรือไม่?", y: 1, n: 0, u: 0 },
+            { id: 8, en: "8. Was the reaction more severe when the dose was increased or less severe when the dose was decreased?", th: "8. อาการรุนแรงขึ้นเมื่อเพิ่มขนาดยา หรือลดลงเมื่อลดขนาดยาหรือไม่?", y: 1, n: 0, u: 0 },
+            { id: 9, en: "9. Did the patient have a similar reaction to the same or similar drugs in any previous exposure?", th: "9. ผู้ป่วยเคยมีอาการคล้ายกันกับยาตัวเดิมหรือยาที่คล้ายกันในอดีตหรือไม่?", y: 1, n: 0, u: 0 },
+            { id: 10, en: "10. Was the adverse event confirmed by any objective evidence?", th: "10. อาการไม่พึงประสงค์ได้รับการยืนยันด้วยหลักฐานเชิงประจักษ์หรือไม่?", y: 1, n: 0, u: 0 }
+        ];
+
+        const uiText = {
+            en: {
+                title: "Naranjo Assessment",
+                subtitle: "Adverse Drug Reaction Probability Scale",
+                secPatient: "Patient Information",
+                secHistory: "Old History (Known Allergies)",
+                descHistory: "Add known allergies here. Included as 'History (H)'.",
+                secCurrent: "Current Naranjo Assessment",
+                lblEnable: "Perform Assessment",
+                lbl: { name: "Name", hn: "HN", unit: "Unit", date: "Date", pharm: "Pharmacist", license: "License", drug: "Suspected Drug", sym: "Reaction" },
+                btnCalc: "Calculate & Generate Card (A5 PDF)",
+                resLabel: "Current Assessment Result",
+                alertDoubtful: "Result is Doubtful (Score ≤ 0). Card cannot be generated for this drug.",
+                alertNoData: "Please add at least one History Drug or perform a Valid Assessment.",
+                thDrug: "Drug Name", thSym: "Symptoms", thRes: "Result",
+                c_lbl: { name: "Name:", hn: "HN:", unit: "Unit:", pharm: "Pharmacist:", date: "Date:" }
+            },
+            th: {
+                title: "แบบประเมิน Naranjo",
+                subtitle: "เกณฑ์การประเมินความน่าจะเป็นของอาการแพ้ยา",
+                secPatient: "ข้อมูลผู้ป่วย",
+                secHistory: "ประวัติการแพ้ยาเดิม (History)",
+                descHistory: "เพิ่มรายการยาที่ทราบประวัติแพ้อยู่แล้ว (ระบุเป็นประวัติเก่า H)",
+                secCurrent: "การประเมิน Naranjo (ครั้งนี้)",
+                lblEnable: "ทำการประเมิน",
+                lbl: { name: "ชื่อ-สกุล", hn: "HN", unit: "หน่วยงานที่ประเมิน", date: "วันที่", pharm: "เภสัชกรผู้ประเมิน", license: "เลขใบประกอบฯ (ภ.)", drug: "ยาที่สงสัย (ใหม่)", sym: "อาการที่พบ" },
+                btnCalc: "ประเมินผลและออกบัตรแพ้ยา (A5 PDF)",
+                resLabel: "ผลการประเมินครั้งนี้",
+                alertDoubtful: "ผลการประเมินเป็น Doubtful (คะแนน ≤ 0) ไม่สามารถออกบัตรสำหรับรายการนี้ได้",
+                alertNoData: "กรุณาเพิ่มรายการยาเก่า หรือทำการประเมินยาใหม่ที่ได้ผลเป็นบวกอย่างน้อย 1 รายการ",
+                thDrug: "ยาที่แพ้ (Drug Name)", thSym: "อาการ (Symptoms)", thRes: "ผลประเมิน (Result)",
+                c_lbl: { name: "ชื่อ-สกุล:", hn: "HN:", unit: "หน่วยงาน:", pharm: "เภสัชกร:", date: "วันที่:" }
+            }
+        };
+
+        let currentLang = 'th';
+        let historyItems = []; // Array of {drug, sym}
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderQuestions();
+            setLanguage('th');
+            document.getElementById('inp-date').valueAsDate = new Date();
+        });
+
+        function renderQuestions() {
+            const tbody = document.getElementById('question-body');
+            tbody.innerHTML = questions.map((q, i) => `
+                <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
+                    <td class="px-4 py-2 text-sm text-gray-900 q-text" data-idx="${i}">${q.th}</td>
+                    <td class="text-center py-2"><input type="radio" name="q${i}" value="${q.y}" class="cursor-pointer"></td>
+                    <td class="text-center py-2"><input type="radio" name="q${i}" value="${q.n}" class="cursor-pointer"></td>
+                    <td class="text-center py-2"><input type="radio" name="q${i}" value="${q.u}" checked class="cursor-pointer"></td>
+                </tr>
+            `).join('');
+        }
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            const t = uiText[lang];
+
+            // Text Updates
+            document.getElementById('app-title').textContent = t.title;
+            document.getElementById('app-subtitle').textContent = t.subtitle;
+            document.getElementById('sec-patient').textContent = t.secPatient;
+            document.getElementById('sec-history').textContent = t.secHistory;
+            document.getElementById('desc-history').textContent = t.descHistory;
+            document.getElementById('sec-current').textContent = t.secCurrent;
+            document.getElementById('lbl-enable-assess').textContent = t.lblEnable;
+            document.getElementById('btn-calc-text').textContent = t.btnCalc;
+            document.getElementById('res-label').textContent = t.resLabel;
+
+            // Placeholders & Labels
+            document.getElementById('lbl-name').textContent = t.lbl.name;
+            document.getElementById('lbl-hn').textContent = t.lbl.hn;
+            document.getElementById('lbl-unit').textContent = t.lbl.unit;
+            document.getElementById('lbl-date').textContent = t.lbl.date;
+            document.getElementById('lbl-pharm').textContent = t.lbl.pharm;
+            document.getElementById('lbl-license').textContent = t.lbl.license;
+            document.getElementById('lbl-drug').textContent = t.lbl.drug;
+            document.getElementById('lbl-symptom').textContent = t.lbl.sym;
+
+            // Inputs placeholders
+            document.getElementById('hist-drug').placeholder = lang === 'th' ? "ชื่อยา" : "Drug Name";
+            document.getElementById('hist-sym').placeholder = lang === 'th' ? "อาการ" : "Symptom";
+
+            // Card Headers
+            document.getElementById('th-drug').textContent = t.thDrug;
+            document.getElementById('th-sym').textContent = t.thSym;
+            document.getElementById('th-res').textContent = t.thRes;
+            document.getElementById('c-lbl-name').textContent = t.c_lbl.name;
+            document.getElementById('c-lbl-hn').textContent = t.c_lbl.hn;
+            document.getElementById('c-lbl-unit').textContent = t.c_lbl.unit;
+            document.getElementById('c-lbl-pharm').textContent = t.c_lbl.pharm;
+            document.getElementById('c-lbl-date').textContent = t.c_lbl.date;
+
+            // Question Text
+            document.querySelectorAll('.q-text').forEach(el => {
+                const idx = el.dataset.idx;
+                el.textContent = lang === 'th' ? questions[idx].th : questions[idx].en;
+            });
+
+            // Buttons Style
+            const btnEn = document.getElementById('btn-en');
+            const btnTh = document.getElementById('btn-th');
+            if(lang === 'en') {
+                btnEn.className = "px-4 py-1 rounded bg-white text-blue-700 shadow text-sm font-medium";
+                btnTh.className = "px-4 py-1 rounded transition-colors text-sm font-medium text-blue-100 hover:text-white";
+            } else {
+                btnTh.className = "px-4 py-1 rounded bg-white text-blue-700 shadow text-sm font-medium";
+                btnEn.className = "px-4 py-1 rounded transition-colors text-sm font-medium text-blue-100 hover:text-white";
+            }
+            renderHistoryList(); // Re-render list text if needed (though user input stays same)
+        }
+
+        // --- Logic: History Items ---
+        function addHistoryItem() {
+            const drug = document.getElementById('hist-drug').value.trim();
+            const sym = document.getElementById('hist-sym').value.trim();
+            if (drug) {
+                historyItems.push({ drug, sym });
+                document.getElementById('hist-drug').value = '';
+                document.getElementById('hist-sym').value = '';
+                renderHistoryList();
+            }
+        }
+
+        function removeHistoryItem(index) {
+            historyItems.splice(index, 1);
+            renderHistoryList();
+        }
+
+        function renderHistoryList() {
+            const list = document.getElementById('history-list');
+            list.innerHTML = historyItems.map((item, idx) => `
+                <li class="flex justify-between items-center bg-white p-2 rounded border border-gray-200 text-sm">
+                    <div>
+                        <span class="font-bold text-gray-800">${item.drug}</span>
+                        <span class="text-gray-500 mx-1">-</span>
+                        <span class="text-gray-600">${item.sym || '-'}</span>
+                        <span class="ml-2 bg-gray-200 text-gray-600 text-xs px-1 rounded">History (H)</span>
+                    </div>
+                    <button onclick="removeHistoryItem(${idx})" class="text-red-500 hover:text-red-700 font-bold px-2">✕</button>
+                </li>
+            `).join('');
+        }
+
+        function toggleAssessment() {
+            const enabled = document.getElementById('chk-assess').checked;
+            const panel = document.getElementById('assessment-panel');
+            const msg = document.getElementById('assessment-disabled-msg');
+            
+            if(enabled) {
+                panel.classList.remove('hidden', 'opacity-50', 'pointer-events-none');
+                msg.classList.add('hidden');
+            } else {
+                panel.classList.add('hidden');
+                msg.classList.remove('hidden');
+            }
+        }
+
+        function getInterpretation(score) {
+            if (score >= 9) return "Definite";
+            if (score >= 5) return "Probable";
+            if (score >= 1) return "Possible";
+            return "Doubtful";
+        }
+
+        async function processAndGenerate() {
+            // Reset UI
+            document.getElementById('alert-box').classList.add('hidden');
+            document.getElementById('result-container').classList.add('hidden');
+            
+            // Prepare List for Card
+            let finalDrugList = [];
+            
+            // 1. Add History Items
+            historyItems.forEach(h => {
+                finalDrugList.push({
+                    name: h.drug,
+                    sym: h.sym,
+                    res: currentLang === 'th' ? "ประวัติเก่า (H)" : "History (H)",
+                    isDoubtful: false
+                });
+            });
+
+            // 2. Process Current Assessment (if enabled)
+            const assessEnabled = document.getElementById('chk-assess').checked;
+            let currentScore = 0;
+            let currentInterp = "";
+
+            if (assessEnabled) {
+                const newDrugName = document.getElementById('inp-drug').value.trim();
+                if (newDrugName === "") {
+                    // If checkbox is checked but no drug name, warn user? or just skip?
+                    // Let's assume if name empty, we ignore assessment
+                } else {
+                    // Calculate Score
+                    for (let i = 0; i < questions.length; i++) {
+                        const radios = document.getElementsByName(`q${i}`);
+                        for (const r of radios) {
+                            if (r.checked) currentScore += parseInt(r.value);
+                        }
+                    }
+                    currentInterp = getInterpretation(currentScore);
+                    
+                    // Show result on screen
+                    const resContainer = document.getElementById('result-container');
+                    resContainer.classList.remove('hidden');
+                    document.getElementById('score-val').textContent = currentScore;
+                    document.getElementById('interp-val').textContent = `${currentInterp} (${currentLang === 'th' && currentScore > 0 ? 'น่าจะใช่' : ''})`;
+                    
+                    const scoreEl = document.getElementById('score-val');
+                    const interpEl = document.getElementById('interp-val');
+
+                    // Logic: If Doubtful -> STOP Generation for this drug
+                    if (currentScore <= 0) {
+                        scoreEl.className = "text-5xl font-extrabold text-gray-500";
+                        interpEl.className = "text-xl font-bold mt-2 text-gray-500";
+                        
+                        // Show Alert
+                        const alertBox = document.getElementById('alert-box');
+                        alertBox.classList.remove('hidden');
+                        document.getElementById('alert-msg').textContent = uiText[currentLang].alertDoubtful;
+                        return; 
+                    } else {
+                        // Valid Score
+                        if(currentScore >= 9) { scoreEl.className = "text-5xl font-extrabold text-red-600"; interpEl.className = "text-xl font-bold mt-2 text-red-600"; }
+                        else if(currentScore >= 5) { scoreEl.className = "text-5xl font-extrabold text-orange-500"; interpEl.className = "text-xl font-bold mt-2 text-orange-500"; }
+                        else { scoreEl.className = "text-5xl font-extrabold text-green-600"; interpEl.className = "text-xl font-bold mt-2 text-green-600"; }
+
+                        finalDrugList.push({
+                            name: newDrugName,
+                            sym: document.getElementById('inp-symptom').value || "-",
+                            res: `${currentInterp} (Score: ${currentScore})`,
+                            isDoubtful: false
+                        });
+                    }
+                }
+            }
+
+            // 3. Check if we have anything to print
+            if (finalDrugList.length === 0) {
+                const alertBox = document.getElementById('alert-box');
+                alertBox.classList.remove('hidden');
+                document.getElementById('alert-msg').textContent = uiText[currentLang].alertNoData;
+                return;
+            }
+
+            // 4. Populate Card
+            document.getElementById('c-val-name').innerText = document.getElementById('inp-name').value || "-";
+            document.getElementById('c-val-hn').innerText = document.getElementById('inp-hn').value || "-";
+            document.getElementById('c-val-unit').innerText = document.getElementById('inp-unit').value || "-";
+            document.getElementById('c-val-date').innerText = document.getElementById('inp-date').value || "-";
+            
+            const pharmName = document.getElementById('inp-pharm').value || "";
+            const pharmLic = document.getElementById('inp-license').value || "";
+            document.getElementById('c-val-pharm').innerText = `${pharmName} ${pharmLic ? '('+pharmLic+')' : ''}`;
+
+            // Build Table Rows
+            const tbody = document.getElementById('c-table-body');
+            tbody.innerHTML = finalDrugList.map(item => `
+                <tr>
+                    <td style="color: #1e40af; font-weight: 800;">${item.name}</td>
+                    <td style="color: #374151;">${item.sym || '-'}</td>
+                    <td style="color: #047857; font-weight: 700;">${item.res}</td>
+                </tr>
+            `).join('');
+
+            // 5. Generate PDF with Auto-Fit Logic
+            const statusDiv = document.getElementById('download-status');
+            statusDiv.innerText = uiText[currentLang].statusGen || "Generating PDF...";
+
+            try {
+                const element = document.getElementById('pdf-card');
+                
+                // Use high scale for crisp text
+                const canvas = await html2canvas(element, { 
+                    scale: 2,
+                    backgroundColor: null
+                });
+                const imgData = canvas.toDataURL('image/png');
+                
+                const { jsPDF } = window.jspdf;
+                // A5 Landscape: 210mm x 148mm
+                const pdf = new jsPDF({
+                    orientation: 'landscape',
+                    unit: 'mm',
+                    format: 'a5'
+                });
+
+                const imgProps = pdf.getImageProperties(imgData);
+                // A5 size
+                const pageHeight = 148;
+                const pageWidth = 210;
+                const margin = 5;
+                
+                // Calculate dimensions to fit within margins
+                let pdfWidth = pageWidth - (margin * 2);
+                let pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                
+                // If height exceeds page, scale down by height instead
+                const maxPdfHeight = pageHeight - (margin * 2);
+                if (pdfHeight > maxPdfHeight) {
+                     const ratio = maxPdfHeight / pdfHeight;
+                     pdfWidth = pdfWidth * ratio;
+                     pdfHeight = maxPdfHeight;
+                }
+
+                // Center the image
+                const x = (pageWidth - pdfWidth) / 2;
+                const y = (pageHeight - pdfHeight) / 2;
+
+                pdf.addImage(imgData, 'PNG', x, y, pdfWidth, pdfHeight);
+                
+                const hn = document.getElementById('inp-hn').value;
+                const fName = hn ? `AllergyCard_${hn}.pdf` : `AllergyCard.pdf`;
+                pdf.save(fName);
+                
+                statusDiv.innerText = uiText[currentLang].statusDone || "Done!";
+            } catch (err) {
+                console.error(err);
+                const alertBox = document.getElementById('alert-box');
+                alertBox.classList.remove('hidden');
+                document.getElementById('alert-msg').textContent = "Error generating PDF";
+            }
+        }
+    </script>
+</body>
+</html>
