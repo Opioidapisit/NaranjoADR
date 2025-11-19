@@ -374,7 +374,7 @@
             </div>
         </div>
         <div class="bg-gray-50 px-6 py-4 border-t text-center text-xs text-gray-400">
-            Ref: Naranjo CA et al. Clin Pharmacol Ther 1981; 30: 239-245. Developed by Opioid.Apisit
+            Ref: Naranjo CA et al. Clin Pharmacol Ther 1981; 30: 239-245. Developed by Opioid.apisit 
         </div>
     </div>
 
@@ -532,8 +532,8 @@
                 lblEnable: "Perform Assessment",
                 lbl: { name: "Name", hn: "HN", unit: "Unit", date: "Date", pharm: "Pharmacist", license: "License", drug: "Suspected Drug", sym: "Reaction" },
                 btnCalc: "Calculate Score",
-                btnDlCard: "Download Card",
-                btnDlReport: "Download Report",
+                btnDlCard: "Download Card (A5 PDF)",
+                btnDlReport: "Download Report (A4 PDF)",
                 resLabel: "Assessment Result",
                 alertDoubtful: "Result is Doubtful (Score ≤ 0). Cannot generate card for this drug.",
                 alertNoData: "Please add History Drug or perform Valid Assessment.",
@@ -550,13 +550,13 @@
                 lblEnable: "ทำการประเมิน",
                 lbl: { name: "ชื่อ-สกุล", hn: "HN", unit: "หน่วยงานที่ประเมิน", date: "วันที่", pharm: "เภสัชกรผู้ประเมิน", license: "เลขใบประกอบฯ (ภ.)", drug: "ยาที่สงสัย (ใหม่)", sym: "อาการที่พบ" },
                 btnCalc: "คำนวณคะแนน (Calculate)",
-                btnDlCard: "ดาวน์โหลดบัตรแพ้ยา",
-                btnDlReport: "ดาวน์โหลดรายงานผล",
+                btnDlCard: "ดาวน์โหลดบัตรแพ้ยา (A5)",
+                btnDlReport: "ดาวน์โหลดรายงานผล (A4)",
                 resLabel: "ผลการประเมินครั้งนี้",
                 alertDoubtful: "ผลประเมินเป็น Doubtful (≤ 0) ไม่สามารถออกเอกสารสำหรับรายการนี้ได้",
                 alertNoData: "กรุณาเพิ่มรายการยาเก่า หรือทำการประเมินยาใหม่ให้สมบูรณ์",
                 thDrug: "ยาที่แพ้ (Drug Name)", thSym: "อาการ (Symptoms)", thRes: "ผลประเมิน (Result)",
-                c_lbl: { name: "ชื่อ-สกุล:", hn: "HN:", unit: "หน่วยงาน:", pharm: "เภสัชกร:", date: "วันที่:" }
+                c_lbl: { name: "ชื่อ-สกุล:", hn: "HN:", unit: "หน่วยงาน:", pharm: "เภสัชกร:", date: "Date:" }
             }
         };
 
@@ -684,6 +684,14 @@
             if (score >= 1) return "Possible";
             return "Doubtful";
         }
+        
+        // --- NEW: Thai Interpretation Detail Function ---
+        function getThaiInterpretationDetail(score) {
+            if (score >= 9) return "ใช่แน่";
+            if (score >= 5) return "น่าจะใช่";
+            if (score >= 1) return "อาจจะใช่";
+            return "ไม่น่าใช่";
+        }
 
         // --- Main Calculation Logic ---
         function calculateAndShowResult() {
@@ -726,7 +734,13 @@
                 // Display
                 const scoreEl = document.getElementById('score-val');
                 scoreEl.textContent = score;
-                document.getElementById('interp-val').textContent = `${interp} (${currentLang === 'th' && score > 0 ? 'น่าจะใช่' : ''})`;
+                
+                // --- MODIFIED LINE HERE ---
+                const thaiInterpText = getThaiInterpretationDetail(score);
+                document.getElementById('interp-val').textContent = 
+                    `${interp}${currentLang === 'th' ? ` (${thaiInterpText})` : ''}`;
+                // --- END MODIFIED LINE ---
+
 
                 // Color
                 if(score <= 0) { scoreEl.className = "text-5xl font-extrabold text-gray-500"; }
@@ -739,10 +753,6 @@
                 
                 // Logic for Buttons
                 const btnReport = document.getElementById('btn-gen-report');
-                // If no drug name or doubtful, disable report generation?
-                // Requirement: "If doubtful, cannot issue card". Assuming report also implies valid positive assessment.
-                // But user might want report for evidence of "Doubtful".
-                // Let's follow the "Cannot generate" rule for Doubtful as per previous request.
                 
                 if (assessmentResult.isDoubtful || !assessmentResult.drug) {
                      // Disable report button visuals or show alert if clicked
@@ -776,7 +786,8 @@
                 itemsToPrint.push({
                     drug: assessmentResult.drug,
                     sym: assessmentResult.sym,
-                    res: `${assessmentResult.interp} (Score: ${assessmentResult.score})`
+                    // Use the correct Thai text in the card generation for consistency
+                    res: `${assessmentResult.interp} (Score: ${assessmentResult.score})${currentLang === 'th' ? ` (${getThaiInterpretationDetail(assessmentResult.score)})` : ''}`
                 });
             }
 
@@ -898,3 +909,4 @@
     </script>
 </body>
 </html>
+
