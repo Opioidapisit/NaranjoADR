@@ -685,7 +685,7 @@
             return "Doubtful";
         }
         
-        // --- NEW: Thai Interpretation Detail Function ---
+        // --- Thai Interpretation Detail Function ---
         function getThaiInterpretationDetail(score) {
             if (score >= 9) return "ใช่แน่";
             if (score >= 5) return "น่าจะใช่";
@@ -735,11 +735,10 @@
                 const scoreEl = document.getElementById('score-val');
                 scoreEl.textContent = score;
                 
-                // --- MODIFIED LINE HERE ---
+                // Display text on screen (using Thai in parentheses if TH language selected)
                 const thaiInterpText = getThaiInterpretationDetail(score);
                 document.getElementById('interp-val').textContent = 
                     `${interp}${currentLang === 'th' ? ` (${thaiInterpText})` : ''}`;
-                // --- END MODIFIED LINE ---
 
 
                 // Color
@@ -786,8 +785,8 @@
                 itemsToPrint.push({
                     drug: assessmentResult.drug,
                     sym: assessmentResult.sym,
-                    // Use the correct Thai text in the card generation for consistency
-                    res: `${assessmentResult.interp} (Score: ${assessmentResult.score})${currentLang === 'th' ? ` (${getThaiInterpretationDetail(assessmentResult.score)})` : ''}`
+                    // MODIFIED LINE: Removed the parenthesized Thai translation for the card
+                    res: `${assessmentResult.interp} (Score: ${assessmentResult.score})`
                 });
             }
 
