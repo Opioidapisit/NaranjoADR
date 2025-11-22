@@ -287,6 +287,12 @@
                 </div>
                 <ul id="history-list" class="space-y-2"></ul>
             </div>
+            
+            <!-- 2.5. Drug Allergy Note (NEW LOCATION) -->
+            <div class="mb-8 bg-gray-50 p-5 rounded-xl border border-gray-200">
+                <label class="block text-lg font-bold text-gray-800 mb-2" id="lbl-note">Drug Allergy Note (*)</label>
+                <textarea id="inp-note" rows="2" class="w-full border-gray-300 rounded-md shadow-sm border p-2.5 focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. Can use other drugs in the same class , Take all medicine of above together..."></textarea>
+            </div>
 
             <!-- 3. Current Assessment -->
             <div class="mb-8 border-2 border-blue-100 rounded-xl p-5">
@@ -294,7 +300,7 @@
                     <h2 class="text-xl font-bold text-blue-800 flex items-center">
                         <span class="bg-blue-600 text-white py-1 px-2 rounded mr-2 text-sm">2</span>
                         <span id="sec-current">Current Naranjo Assessment</span>
-                    </h2>
+                    </h2 >
                     <label class="flex items-center space-x-2 cursor-pointer">
                         <input type="checkbox" id="chk-assess" class="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500" checked onchange="toggleAssessment()">
                         <span class="text-sm font-bold text-gray-700" id="lbl-enable-assess">Perform Assessment</span>
@@ -374,7 +380,7 @@
             </div>
         </div>
         <div class="bg-gray-50 px-6 py-4 border-t text-center text-xs text-gray-400">
-            Ref: Naranjo CA et al. Clin Pharmacol Ther 1981; 30: 239-245. Developed by Opioid.apisit 
+            Ref: Naranjo CA et al. Clin Pharmacol Ther 1981; 30: 239-245. Developed by Opioid.Apisit
         </div>
     </div>
 
@@ -402,6 +408,15 @@
                 </thead>
                 <tbody id="c-table-body"></tbody>
             </table>
+            
+            <!-- Drug Allergy Note Section -->
+            <div id="c-note-section" class="hidden" style="margin-top: 15px;">
+                <p style="font-size: 18px; line-height: 1.4; color: #000; font-weight: 500;">
+                    <span style="font-weight: 800; color: #000; font-size: 20px; margin-right: 5px;">*</span> 
+                    <span id="c-val-note"></span>
+                </p>
+            </div>
+            
             <div class="card-footer">
                 <div class="footer-info">
                     <div class="flex mb-2">
@@ -530,7 +545,7 @@
                 descHistory: "Add known allergies here. Included as 'History (H)'.",
                 secCurrent: "Current Naranjo Assessment",
                 lblEnable: "Perform Assessment",
-                lbl: { name: "Name", hn: "HN", unit: "Unit", date: "Date", pharm: "Pharmacist", license: "License", drug: "Suspected Drug", sym: "Reaction" },
+                lbl: { name: "Name", hn: "HN", unit: "Unit", date: "Date", pharm: "Pharmacist", license: "License", note: "Drug Allergy Note (*)", drug: "Suspected Drug", sym: "Reaction" },
                 btnCalc: "Calculate Score",
                 btnDlCard: "Download Card (A5 PDF)",
                 btnDlReport: "Download Report (A4 PDF)",
@@ -548,7 +563,7 @@
                 descHistory: "เพิ่มรายการยาที่ทราบประวัติแพ้อยู่แล้ว (ระบุเป็นประวัติเก่า H)",
                 secCurrent: "การประเมิน Naranjo (ครั้งนี้)",
                 lblEnable: "ทำการประเมิน",
-                lbl: { name: "ชื่อ-สกุล", hn: "HN", unit: "หน่วยงานที่ประเมิน", date: "วันที่", pharm: "เภสัชกรผู้ประเมิน", license: "เลขใบประกอบฯ (ภ.)", drug: "ยาที่สงสัย (ใหม่)", sym: "อาการที่พบ" },
+                lbl: { name: "ชื่อ-สกุล", hn: "HN", unit: "หน่วยงานที่ประเมิน", date: "วันที่", pharm: "เภสัชกรผู้ประเมิน", license: "เลขใบประกอบฯ (ภ.)", note: "หมายเหตุการแพ้ยา (ทั้งครั้งก่อนหน้าและครั้งนี้)", drug: "ยาที่สงสัย (ใหม่)", sym: "อาการที่พบ" },
                 btnCalc: "คำนวณคะแนน (Calculate)",
                 btnDlCard: "ดาวน์โหลดบัตรแพ้ยา (A5)",
                 btnDlReport: "ดาวน์โหลดรายงานผล (A4)",
@@ -556,7 +571,7 @@
                 alertDoubtful: "ผลประเมินเป็น Doubtful (≤ 0) ไม่สามารถออกเอกสารสำหรับรายการนี้ได้",
                 alertNoData: "กรุณาเพิ่มรายการยาเก่า หรือทำการประเมินยาใหม่ให้สมบูรณ์",
                 thDrug: "ยาที่แพ้ (Drug Name)", thSym: "อาการ (Symptoms)", thRes: "ผลประเมิน (Result)",
-                c_lbl: { name: "ชื่อ-สกุล:", hn: "HN:", unit: "หน่วยงาน:", pharm: "เภสัชกร:", date: "Date:" }
+                c_lbl: { name: "ชื่อ-สกุล:", hn: "HN:", unit: "หน่วยงาน:", pharm: "เภสัชกร:", date: "วันที่:" }
             }
         };
 
@@ -605,6 +620,7 @@
             document.getElementById('lbl-date').textContent = t.lbl.date;
             document.getElementById('lbl-pharm').textContent = t.lbl.pharm;
             document.getElementById('lbl-license').textContent = t.lbl.license;
+            document.getElementById('lbl-note').textContent = t.lbl.note; // NEW
             document.getElementById('lbl-drug').textContent = t.lbl.drug;
             document.getElementById('lbl-symptom').textContent = t.lbl.sym;
 
@@ -813,6 +829,19 @@
                 </tr>
             `).join('');
 
+            // Fill Note Data
+            const noteVal = document.getElementById('inp-note').value.trim();
+            const noteSection = document.getElementById('c-note-section');
+            const noteDisplay = document.getElementById('c-val-note');
+
+            if (noteVal) {
+                noteDisplay.innerText = noteVal;
+                noteSection.classList.remove('hidden');
+            } else {
+                noteSection.classList.add('hidden');
+            }
+
+
             updateStatus("Generating Card (A5)...");
             await downloadPDF('pdf-card', 'a5', 'landscape', 'AllergyCard');
             updateStatus("");
@@ -908,4 +937,3 @@
     </script>
 </body>
 </html>
-
